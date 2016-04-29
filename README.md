@@ -1,26 +1,3 @@
-**Update**, 20 April 2016. 
-
-Finally, like finally, it's slowly coming together... Well most of it. I've spent long hours over the last few weeks working on it and when I was in bed, my cat took over and also pondered the mysteries of iCloud's inner workings.
-
-So! I've pushed another experimental build that will download backups. It's not been tested and large parts of the code base are mess. I'll continue to tidy up code and stabilize the whole thing. Logging has been set to info, just fiddle with [logback.xml](https://github.com/horrorho/InflatableDonkey/blob/master/src/main/resources/logback.xml) to get the debug output back.
-
-At the moment, the priority is refactoring old code and then I'll get work on additional features and unit tests. InflatableDonkey was only ever intended as an experimental proof of concept and it's a rather convoluted mess. I've tidied up the most horrific parts, but there are still phantoms and boogie monsters lurking around in there. 
-
-On a more positive note, it was written ground up to be multi-threaded. Once it's stable and a few sticking points are sorted I'll switch it over to concurrent downloads.
-
-For those wishing to play with it, please use the --token mode for repeated runs as explained below. Also please remember, it's an experimental build, not production code. It was pushed primarily to show off the underlying backup process, not because it was in a state of completion.
-
-**Update**, 7 April 2016. 
-
-Ok! So I've had free time to work on InflatableDonkey. It's been painful, but there's been lots of progress. I've had to pull apart binaries to figure out the decryption process, which I hate doing. Like seriously, it's horrible.
-
-At present the escrow recovery is working so we have access to decryption keys. I do have the protection zone decryption figured and I'll be coding that in over the next few weeks. Keybag/ file protection mechanics seem to be unchanged so that code will follow.
-
-There's a lot of cryptographical code from a non-cryptographer. So feel free to pull it apart and suggest any improvements. Some of the code is quite raw and will make your eyes bleed, but it should illustrate what's going on. I will tidy it up at some point.
-
-Sooo... what's left? Chunk decryption is the big one. I'm hoping it's a simple solution, otherwise it's back to pulling apart binaries. :'(
-
-
 ### What is it?
 Java proof of concept iOS9 iCloud backup retrieval tool.
 
@@ -39,10 +16,13 @@ The executable Jar is located at /target/InflatableDonkey.jar
 ~/InflatableDonkey-master/target $ java -jar InflatableDonkey.jar --help
 usage: InflatableDonkey [OPTION]... (<token> | <appleid> <password>)
  -d,--device <int>         Device, default: 0 = first device.
+    --serial <string>      Device serial number, case insensitive.
  -s,--snapshot <int>       Snapshot, default: 0 = first snapshot.
     --extension <string>   File extension filter, case insensitive.
-    --domain <string>      Domain filter, case insensitive.
- -o,--folder <string>      Output folder.
+    --domain <string>      Domain filter, case insensitive. Separate
+                           values with commas.
+ -o,--folder <string>      Output folder. Defaults to device serial
+                           number.
     --snapshots            List device/ snapshot information and exit.
     --domains              List domains/ file count for the selected
                            snapshot and exit.

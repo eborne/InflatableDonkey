@@ -73,14 +73,14 @@ public final class OptionsFactory {
                 Property.FILTER_EXTENSION);
 
         options.put(Option.builder().longOpt("domain")
-                .desc("Domain filter, case insensitive.")
+                .desc("Domain filter, case insensitive. Separate values with commas.")
                 .argName("string")
                 .hasArg()
                 .build(),
                 Property.FILTER_DOMAIN);
 
         options.put(Option.builder("o").longOpt("folder")
-                .desc("Output folder.")
+                .desc("Output folder. Defaults to device serial number.")
                 .argName("string")
                 .hasArg()
                 .build(),
