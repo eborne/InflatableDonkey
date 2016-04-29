@@ -16,6 +16,7 @@ import java.util.Optional;
 import net.jcip.annotations.Immutable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import java.time.Instant;
 
 /**
  * Snapshot.
@@ -63,6 +64,21 @@ public final class Snapshot extends AbstractRecord {
     public String info() {
         return String.format("%6s MB ", (quotaUsed() / 1048576))
                 + deviceName();
+    }
+
+    public String productVersion() {
+        return recordFieldValue("productVersion")
+            .map(CloudKit.RecordFieldValue::getStringValue)
+            .orElse("");
+    }
+
+    public Instant modifiedDateInstant() {
+        return WKTimestamp.toInstant(
+            record()
+                .getTimeStatistics()
+                .getModification()
+                .getTime()
+            );
     }
 
     @Override

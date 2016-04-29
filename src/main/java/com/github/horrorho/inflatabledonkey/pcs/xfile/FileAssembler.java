@@ -25,22 +25,24 @@ package com.github.horrorho.inflatabledonkey.pcs.xfile;
 
 import com.github.horrorho.inflatabledonkey.args.Property;
 import com.github.horrorho.inflatabledonkey.chunk.Chunk;
-import java.io.BufferedInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.OutputStream;
-import java.io.SequenceInputStream;
-import java.io.UncheckedIOException;
+
+import java.io.*;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import static java.nio.file.StandardOpenOption.CREATE;
 import static java.nio.file.StandardOpenOption.TRUNCATE_EXISTING;
 import static java.nio.file.StandardOpenOption.WRITE;
+
+import java.time.Instant;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
+
+import com.github.horrorho.inflatabledonkey.data.backup.WKTimestamp;
+import com.github.horrorho.inflatabledonkey.protocol.CloudKit;
+import com.github.horrorho.inflatabledonkey.util.FileUtils;
 import net.jcip.annotations.Immutable;
 import org.apache.commons.io.IOUtils;
 import org.bouncycastle.util.encoders.Hex;
@@ -60,18 +62,25 @@ public final class FileAssembler {
     private static final Logger logger = LoggerFactory.getLogger(FileAssembler.class);
 
     public static void
-            assemble(Path file, List<Chunk> chunkData, int length, Optional<byte[]> key) throws UncheckedIOException {
+            assemble(Path file, Optional<Instant> modifiedTime, List<Chunk> chunkData, int length, Optional<byte[]> key) throws UncheckedIOException {
 
         logger.debug("-- assemble() - file: {} chunks: {} length: {} key: 0x{}",
                 file, chunkData.size(), length, key.map(Hex::toHexString).orElse("NULL"));
         logger.info("-- assemble() - file: {}", file);
 
-        if (!createDirectories(file)) {
+        if (!FileUtils.createDirectories(file, logger)) {
             return;
         }
         copy(file, chunkData, key
         );
         truncate(file, length);
+
+        if (modifiedTime.isPresent()) {
+            File fileObj = new File(file.toAbsolutePath().toString());
+            fileObj.setLastModified(
+                    modifiedTime.get().toEpochMilli()
+            );
+        }
     }
 
     static void copy(Path file, List<Chunk> chunkData, Optional<byte[]> key) throws UncheckedIOException {
@@ -103,31 +112,6 @@ public final class FileAssembler {
 
         Enumeration<InputStream> enumeration = Collections.enumeration(inputStreams);
         return new BufferedInputStream(new SequenceInputStream(enumeration), BUFFER_SIZE);
-    }
-
-    static boolean createDirectories(Path file) {
-        Path parent = file.getParent();
-        if (parent != null) {
-            if (Files.exists(parent)) {
-                if (Files.isDirectory(parent)) {
-                    return true;
-
-                } else {
-                    logger.warn("-- createDirectories() - path exists but is not a directory: {}", file);
-                    return false;
-                }
-            }
-
-            try {
-                Files.createDirectories(parent);
-                return true;
-
-            } catch (IOException ex) {
-                logger.debug("-- createDirectories() - IOException: {}", ex);
-                return false;
-            }
-        }
-        return true;
     }
 
     static void truncate(Path file, long to) throws UncheckedIOException {

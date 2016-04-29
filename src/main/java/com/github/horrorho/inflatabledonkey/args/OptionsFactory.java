@@ -49,6 +49,15 @@ public final class OptionsFactory {
                 .build(),
                 Property.SELECT_DEVICE_INDEX);
 
+        options.put(
+                Option.builder().longOpt("serial")
+                    .desc("Device serial number, case insensitive.")
+                    .argName("string")
+                    .hasArg()
+                    .build(),
+                Property.SELECT_DEVICE_SERIALNUMBER
+            );
+
         options.put(Option.builder("s").longOpt("snapshot")
                 .desc("Snapshot, default: 0 = first snapshot.")
                 .argName("int")

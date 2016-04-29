@@ -71,7 +71,7 @@ public final class AssetWriter implements BiConsumer<Asset, List<Chunk>> {
         Optional<byte[]> encryptionKey = encryptionKey(asset);
 
         logger.debug("-- assembleFile() - encryption key: {}", asset);
-        FileAssembler.assemble(file, assetChunkList, asset.size(), encryptionKey);
+        FileAssembler.assemble(file, asset.modified(), assetChunkList, asset.size(), encryptionKey);
     }
 
     Optional<byte[]> encryptionKey(Asset asset) {

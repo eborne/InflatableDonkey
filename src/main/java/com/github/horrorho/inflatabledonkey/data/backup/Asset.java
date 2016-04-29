@@ -131,11 +131,19 @@ public final class Asset {
     }
 
     public Optional<String> relativePath() {
-        return encryptedAttribute("relativePath", NSString.class, NSString::getContent);
+        Optional<String> attribute = encryptedAttribute("relativePath", NSString.class, NSString::getContent);
+
+        if (attribute.isPresent())
+        {
+            // colons cause file system exceptions on Win32
+            attribute = Optional.of(attribute.get().replace(':', '-'));
+        }
+
+        return attribute;
     }
 
     public Optional<Instant> modified() {
-        return encryptedAttribute("domain", NSDate.class, NSDate::getDate)
+        return encryptedAttribute("modified", NSDate.class, NSDate::getDate)
                 .map(Date::toInstant);
     }
 

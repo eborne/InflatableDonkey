@@ -39,7 +39,12 @@ import com.github.horrorho.inflatabledonkey.data.backup.BackupAccount;
 import com.github.horrorho.inflatabledonkey.data.backup.Device;
 import com.github.horrorho.inflatabledonkey.data.backup.Snapshot;
 import com.github.horrorho.inflatabledonkey.data.backup.SnapshotID;
+import com.github.horrorho.inflatabledonkey.pcs.xfile.FileAssembler;
+import com.github.horrorho.inflatabledonkey.protocol.CloudKit;
+import com.github.horrorho.inflatabledonkey.util.FileUtils;
 import com.github.horrorho.inflatabledonkey.util.ListUtils;
+
+import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -53,8 +58,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.json.simple.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import java.io.File;
 
 /**
  * InflatableDonkey.
@@ -143,8 +151,10 @@ public class Main {
 
         // Selection
         int deviceIndex = Property.SELECT_DEVICE_INDEX.intValue().get();
+        Optional<String> deviceSerialNumber = Property.SELECT_DEVICE_SERIALNUMBER.value();
         int snapshotIndex = Property.SELECT_SNAPSHOT_INDEX.intValue().get();
         logger.info("-- main() - arg device index: {}", deviceIndex);
+        logger.info("-- main() - arg device serial number: {}", deviceSerialNumber);
         logger.info("-- main() - arg snapshot index: {}", snapshotIndex);
 
         for (int i = 0; i < devices.size(); i++) {
@@ -162,18 +172,34 @@ public class Main {
             return;
         }
 
-        if (deviceIndex >= devices.size()) {
-            System.out.println("No such device: " + deviceIndex);
-        }
-        Device device = devices.get(deviceIndex);
-        System.out.println("Selected device: " + deviceIndex + ", " + device.info());
+        Device device = null;
 
-        if (snapshotIndex >= devices.get(deviceIndex).snapshots().size()) {
+        if (deviceSerialNumber.isPresent()) {
+            device = devices.stream().filter(d -> d.serialNumber().toLowerCase() == deviceSerialNumber.get().toLowerCase()).findFirst().orElse(null);
+
+            if (device == null) {
+                System.out.println("No such device: " + deviceSerialNumber);
+            }
+
+            System.out.println("Selected device: " + deviceSerialNumber.get() + ", " + device.info());
+        }
+        else {
+            if (deviceIndex >= devices.size()) {
+                System.out.println("No such device: " + deviceIndex);
+            }
+
+            device = devices.get(deviceIndex);
+
+            System.out.println("Selected device: " + deviceIndex + ", " + device.info());
+        }
+
+        if (snapshotIndex >= device.snapshots().size()) {
             System.out.println("No such snapshot for selected device: " + snapshotIndex);
         }
 
-        String selected = devices.get(deviceIndex).snapshots().get(snapshotIndex).id();
+        String selected = device.snapshots().get(snapshotIndex).id();
         Snapshot snapshot = snapshots.get(selected);
+
         System.out.println("Selected snapshot: " + snapshotIndex + ", " + snapshot.info());
 
         // Asset list.
@@ -195,22 +221,53 @@ public class Main {
         // Domains filter --domain option
         String domainSubstring = Property.FILTER_DOMAIN.value().orElse("")
                 .toLowerCase(Locale.US);
+        String[] domains = domainSubstring.split(",", -1);
         logger.info("-- main() - arg domain substring filter: {}", Property.FILTER_DOMAIN.value());
 
-        Predicate<Optional<String>> domainFilter = domain -> domain
-                .map(d -> d.toLowerCase(Locale.US))
-                .map(d -> d.contains(domainSubstring))
-                .orElse(false);
+        Predicate<Optional<String>> domainFilter = domain ->
+        {
+            boolean found = false;
+
+            for (String domainValue : domains) {
+                found = domain
+                    .map(d -> d.toLowerCase(Locale.US))
+                    .map(d -> d.contains(domainValue))
+                    .orElse(false);
+
+                if (found)
+                {
+                    break; // for
+                }
+            }
+
+            return found;
+        };
 
         List<String> files = Assets.files(assetsList, domainFilter);
         logger.info("-- main() - domain filtered file count: {}", files.size());
 
         // Output folders.
-        Path outputFolder = Paths.get(Property.OUTPUT_FOLDER.value().orElse("output"));
+        Path outputFolder = Paths.get(Property.OUTPUT_FOLDER.value().orElse("")).resolve(device.serialNumber());
         Path assetOutputFolder = outputFolder.resolve("assets"); // TODO assets value injection
         Path chunkOutputFolder = outputFolder.resolve("chunks"); // TODO chunks value injection
         logger.info("-- main() - output folder chunks: {}", chunkOutputFolder);
         logger.info("-- main() - output folder assets: {}", assetOutputFolder);
+
+        JSONObject jsonObj = new JSONObject();
+        jsonObj.put("serialNumber", device.serialNumber());
+        jsonObj.put("deviceName", device.deviceName());
+        jsonObj.put("version", snapshot.productVersion());
+        jsonObj.put("timestamp", snapshot.modifiedDateInstant().toString());
+
+        Path jsonPath = outputFolder.resolve("info.json").toAbsolutePath();
+        FileUtils.createDirectories(jsonPath, logger);
+
+        File jsonFile = new File(jsonPath.toString());
+        jsonFile.createNewFile();
+        FileWriter writer = new FileWriter(jsonFile);
+        writer.write(jsonObj.toJSONString());
+        writer.flush();
+        writer.close();
 
         // Download tools.
         AuthorizeAssets authorizeAssets = AuthorizeAssets.backupd();

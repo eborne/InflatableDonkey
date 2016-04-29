@@ -15,3 +15,7 @@ hs_err_pid*
 /target/
 /nb-configuration.xml
 /nbactions.xml
+
+# IntelliJ IDEA
+InflatableDonkey.iml
+.idea/

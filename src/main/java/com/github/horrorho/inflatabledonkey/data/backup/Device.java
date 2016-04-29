@@ -74,6 +74,12 @@ public final class Device extends AbstractRecord {
                 .orElse("");
     }
 
+    public String deviceName() {
+        return recordFieldValue("deviceName")
+            .map(CloudKit.RecordFieldValue::getStringValue)
+            .orElse("");
+    }
+
     public String info() {
         return productType() + " "
                 + hardwareModel() + " "
