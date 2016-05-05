@@ -79,6 +79,13 @@ public final class OptionsFactory {
                 .build(),
                 Property.FILTER_DOMAIN);
 
+        options.put(Option.builder().longOpt("filter")
+                        .desc("Asset filter file. Overrides --domain and --extension options. File contents is JSON. All values are case-insensitive regular expressions. e.g.\n[ { \"domain\":\"Media.*\", \"path\":\".*Library\\/SMS\\/Attachments.*\\.jpg\" } ... ]")
+                        .argName("string")
+                        .hasArg()
+                        .build(),
+                Property.FILTER);
+
         options.put(Option.builder("o").longOpt("folder")
                 .desc("Output folder. Defaults to device serial number.")
                 .argName("string")

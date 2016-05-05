@@ -21,6 +21,13 @@ usage: InflatableDonkey [OPTION]... (<token> | <appleid> <password>)
     --extension <string>   File extension filter, case insensitive.
     --domain <string>      Domain filter, case insensitive. Separate
                            values with commas.
+    --filter <string>      Asset filter file. Overrides --domain and
+                           --extension options. File contents is JSON. All
+                           values are case-insensitive regular
+                           expressions. e.g.
+                           [ { "domain":"Media.*",
+                           "path":".*Library\/SMS\/Attachments.*\.jpg" }
+                           ... ]
  -o,--folder <string>      Output folder. Defaults to device serial
                            number.
     --snapshots            List device/ snapshot information and exit.

@@ -84,7 +84,7 @@ public abstract class AbstractRecord {
     }
 
     public final Optional<CloudKit.RecordFieldValue> recordFieldValue(String name) {
-        return Optional.ofNullable(recordFields.get(name).getValue());
+        return recordField(name).map(r -> r.getValue());
     }
 
     @Override

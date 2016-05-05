@@ -44,21 +44,21 @@ import com.github.horrorho.inflatabledonkey.protocol.CloudKit;
 import com.github.horrorho.inflatabledonkey.util.FileUtils;
 import com.github.horrorho.inflatabledonkey.util.ListUtils;
 
+import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Collection;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Optional;
+import java.util.*;
 import java.util.function.Function;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import org.apache.http.impl.client.CloseableHttpClient;
 import org.apache.http.impl.client.HttpClients;
+import org.json.simple.JSONArray;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -218,30 +218,117 @@ public class Main {
             // TODO check Assets without domain information.
         }
 
-        // Domains filter --domain option
-        String domainSubstring = Property.FILTER_DOMAIN.value().orElse("")
-                .toLowerCase(Locale.US);
-        String[] domains = domainSubstring.split(",", -1);
-        logger.info("-- main() - arg domain substring filter: {}", Property.FILTER_DOMAIN.value());
+        // Domains + file extensions filter --filter option
+        String filterPath = Property.FILTER.value().orElse("");
+        Predicate<Optional<String>> domainFilter = null;
+        Predicate<Asset> assetFilter = null;
 
-        Predicate<Optional<String>> domainFilter = domain ->
-        {
-            boolean found = false;
+        if (!filterPath.isEmpty()) {
+            JSONParser parser = new JSONParser();
+            try {
+                JSONArray jsonArray = (JSONArray) parser.parse(new FileReader(filterPath));
 
-            for (String domainValue : domains) {
-                found = domain
-                    .map(d -> d.toLowerCase(Locale.US))
-                    .map(d -> d.contains(domainValue))
-                    .orElse(false);
+                List<Filter> filters = new ArrayList<Filter>();
 
-                if (found)
+                for (Object obj : jsonArray)
                 {
-                    break; // for
-                }
-            }
+                    JSONObject jsonObject = (JSONObject) obj;
 
-            return found;
-        };
+                    String domain = (String) jsonObject.get("domain");
+                    String path = (String) jsonObject.get("path");
+
+                    Filter filter = new Filter(domain.toLowerCase(Locale.US), path.toLowerCase(Locale.US));
+                    filters.add(filter);
+                }
+
+                domainFilter = domain ->
+                {
+                    boolean found = false;
+
+                    for (Filter filter : filters) {
+                        found = domain
+                                .map(d -> d.toLowerCase(Locale.US))
+                                .map(d -> d.matches(filter.getDomain()))
+                                .orElse(false);
+
+                        if (found)
+                        {
+                            break; // for
+                        }
+                    }
+
+                    return found;
+                };
+
+                assetFilter = asset -> asset
+                    .relativePath()
+                    .map(path ->
+                    {
+                        boolean found = false;
+
+                        for (Filter filter : filters) {
+                            found = asset.domain()
+                                    .map(d -> d.toLowerCase(Locale.US))
+                                    .map(d -> d.matches(filter.getDomain()))
+                                    .orElse(false);
+
+                            if (found) {
+                                found = path
+                                        .toLowerCase(Locale.US)
+                                        .matches(filter.getPath());
+                            }
+
+                            if (found) {
+                                break; // for
+                            }
+                        }
+
+                        return found;
+                    })
+                    .orElse(false);
+            }
+            catch (Exception exception) {
+                exception.printStackTrace();
+            }
+        }
+        else {
+            // Domains filter --domain option
+            String domainSubstring = Property.FILTER_DOMAIN.value().orElse("")
+                    .toLowerCase(Locale.US);
+            String[] domains = domainSubstring.split(",", -1);
+            logger.info("-- main() - arg domain substring filter: {}", Property.FILTER_DOMAIN.value());
+
+            domainFilter = domain ->
+            {
+                boolean found = false;
+
+                for (String domainValue : domains) {
+                    found = domain
+                            .map(d -> d.toLowerCase(Locale.US))
+                            .map(d -> d.contains(domainValue))
+                            .orElse(false);
+
+                    if (found)
+                    {
+                        break; // for
+                    }
+                }
+
+                return found;
+            };
+
+            // Filename extension filter.
+            String filenameExtension = Property.FILTER_EXTENSION.value().orElse("")
+                    .toLowerCase(Locale.US);
+            logger.info("-- main() - arg filename extension filter: {}", Property.FILTER_EXTENSION.value());
+
+            assetFilter = asset -> asset
+                    .relativePath()
+                    .map(d -> d.toLowerCase(Locale.US))
+                    .map(d -> d.endsWith(filenameExtension))
+                    .orElse(false);
+        }
+
 
         List<String> files = Assets.files(assetsList, domainFilter);
         logger.info("-- main() - domain filtered file count: {}", files.size());
@@ -255,7 +342,14 @@ public class Main {
 
         JSONObject jsonObj = new JSONObject();
         jsonObj.put("serialNumber", device.serialNumber());
-        jsonObj.put("deviceName", device.deviceName());
+        String deviceName = device.deviceName();
+
+        if (deviceName.isEmpty())
+        {
+            deviceName = snapshot.deviceName();
+        }
+
+        jsonObj.put("deviceName", deviceName);
         jsonObj.put("version", snapshot.productVersion());
         jsonObj.put("timestamp", snapshot.modifiedDateInstant().toString());
 
@@ -278,17 +372,6 @@ public class Main {
 
         // Mystery Moo. 
         Moo moo = new Moo(authorizeAssets, assetDownloader, keyBagManager);
-
-        // Filename extension filter.
-        String filenameExtension = Property.FILTER_EXTENSION.value().orElse("")
-                .toLowerCase(Locale.US);
-        logger.info("-- main() - arg filename extension filter: {}", Property.FILTER_EXTENSION.value());
-
-        Predicate<Asset> assetFilter = asset -> asset
-                .relativePath()
-                .map(d -> d.toLowerCase(Locale.US))
-                .map(d -> d.endsWith(filenameExtension))
-                .orElse(false);
 
         // Batch process files in groups of 100.
         // TODO group files into batches based on file size.
